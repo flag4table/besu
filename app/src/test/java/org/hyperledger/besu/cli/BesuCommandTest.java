@@ -2469,6 +2469,75 @@ public class BesuCommandTest extends CommandTestAbstract {
   }
 
   @Test
+  public void assertMinimumGlibcVersionSkipsNonLinuxPlatforms() {
+    final BesuCommand mockCmd = parseCommand();
+
+    try (MockedStatic<PlatformDetector> platformDetector = mockStatic(PlatformDetector.class)) {
+      platformDetector.when(PlatformDetector::getOSType).thenReturn("osx");
+
+      assertThatNoException().isThrownBy(mockCmd::assertMinimumGlibcVersion);
+      platformDetector.verify(PlatformDetector::getOSType);
+      platformDetector.verifyNoMoreInteractions();
+    }
+  }
+
+  @Test
+  public void assertMinimumGlibcVersionAllowsSupportedVersion() {
+    final BesuCommand mockCmd = parseCommand();
+
+    try (MockedStatic<PlatformDetector> platformDetector = mockStatic(PlatformDetector.class)) {
+      platformDetector.when(PlatformDetector::getOSType).thenReturn("linux");
+      platformDetector.when(PlatformDetector::getGlibc).thenReturn("2.28");
+      platformDetector
+          .when(() -> PlatformDetector.isKnownGlibcVersion("2.28"))
+          .thenReturn(true);
+      platformDetector
+          .when(() -> PlatformDetector.isGlibcVersionAtLeast("2.28", "2.28"))
+          .thenReturn(true);
+
+      assertThatNoException().isThrownBy(mockCmd::assertMinimumGlibcVersion);
+    }
+  }
+
+  @Test
+  public void assertMinimumGlibcVersionFailsUnsupportedVersion() {
+    final BesuCommand mockCmd = parseCommand();
+
+    try (MockedStatic<PlatformDetector> platformDetector = mockStatic(PlatformDetector.class)) {
+      platformDetector.when(PlatformDetector::getOSType).thenReturn("linux");
+      platformDetector.when(PlatformDetector::getGlibc).thenReturn("2.27");
+      platformDetector
+          .when(() -> PlatformDetector.isKnownGlibcVersion("2.27"))
+          .thenReturn(true);
+      platformDetector
+          .when(() -> PlatformDetector.isGlibcVersionAtLeast("2.27", "2.28"))
+          .thenReturn(false);
+
+      assertThatExceptionOfType(UnsupportedOperationException.class)
+          .isThrownBy(mockCmd::assertMinimumGlibcVersion)
+          .withMessageContaining("glibc 2.27 is not supported")
+          .withMessageContaining("2.28 or later");
+    }
+  }
+
+  @Test
+  public void assertMinimumGlibcVersionWarnsWhenVersionUnknown() {
+    final BesuCommand mockCmd = parseCommand();
+
+    try (MockedStatic<PlatformDetector> platformDetector = mockStatic(PlatformDetector.class)) {
+      platformDetector.when(PlatformDetector::getOSType).thenReturn("linux");
+      platformDetector.when(PlatformDetector::getGlibc).thenReturn("unknown");
+      platformDetector
+          .when(() -> PlatformDetector.isKnownGlibcVersion("unknown"))
+          .thenReturn(false);
+
+      assertThatNoException().isThrownBy(mockCmd::assertMinimumGlibcVersion);
+      verify(mockLogger)
+          .warn("Unable to detect glibc version. Required minimum version is {}.", "2.28");
+    }
+  }
+
+  @Test
   public void bonsaiFlatDbShouldBeEnabledByDefault() {
     final TestBesuCommand besuCommand = parseCommand();
     assertThat(

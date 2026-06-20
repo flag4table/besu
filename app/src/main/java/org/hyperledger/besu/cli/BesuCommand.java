@@ -187,6 +187,7 @@ import org.hyperledger.besu.util.PermissioningConfigurationValidator;
 import org.hyperledger.besu.util.number.Fraction;
 import org.hyperledger.besu.util.number.Percentage;
 import org.hyperledger.besu.util.number.PositiveNumber;
+import org.hyperledger.besu.util.platform.PlatformDetector;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -274,6 +275,8 @@ import picocli.CommandLine.ParseResult;
       "%nMore info and other profiles at https://besu.hyperledger.org%n"
     })
 public class BesuCommand implements DefaultCommandValues, Runnable {
+  private static final String MINIMUM_GLIBC_VERSION = "2.28";
+
   @SuppressWarnings("PrivateStaticFinalLoggers")
   // non-static for testing
   private final Logger logger;
@@ -952,6 +955,7 @@ public class BesuCommand implements DefaultCommandValues, Runnable {
       }
 
       logger.info("Starting Besu");
+      assertMinimumGlibcVersion();
 
       // set merge config on the basis of genesis config
       setMergeConfigOptions();
@@ -1464,6 +1468,28 @@ public class BesuCommand implements DefaultCommandValues, Runnable {
               System.getProperty("os.name"),
               System.getProperty("os.arch"),
               failures));
+    }
+  }
+
+  @VisibleForTesting
+  void assertMinimumGlibcVersion() {
+    if (!"linux".equals(PlatformDetector.getOSType())) {
+      return;
+    }
+
+    final String glibcVersion = PlatformDetector.getGlibc();
+    if (!PlatformDetector.isKnownGlibcVersion(glibcVersion)) {
+      logger.warn(
+          "Unable to detect glibc version. Required minimum version is {}.",
+          MINIMUM_GLIBC_VERSION);
+      return;
+    }
+
+    if (!PlatformDetector.isGlibcVersionAtLeast(glibcVersion, MINIMUM_GLIBC_VERSION)) {
+      throw new UnsupportedOperationException(
+          String.format(
+              "glibc %s is not supported. Besu requires glibc %s or later.",
+              glibcVersion, MINIMUM_GLIBC_VERSION));
     }
   }
 

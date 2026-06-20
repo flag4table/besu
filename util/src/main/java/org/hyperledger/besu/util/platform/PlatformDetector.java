@@ -123,6 +123,47 @@ public class PlatformDetector {
 
   private static final String UNKNOWN = "unknown";
 
+  /**
+   * Checks whether a glibc version string is at least the required minimum version.
+   *
+   * @param version the glibc version to check
+   * @param minimumVersion the minimum required glibc version
+   * @return true if the glibc version is at least the minimum
+   */
+  public static boolean isGlibcVersionAtLeast(
+      final String version, final String minimumVersion) {
+    final int[] parsedVersion = parseVersion(version);
+    final int[] parsedMinimumVersion = parseVersion(minimumVersion);
+
+    for (int i = 0; i < Math.max(parsedVersion.length, parsedMinimumVersion.length); i++) {
+      final int currentVersionPart = i < parsedVersion.length ? parsedVersion[i] : 0;
+      final int minimumVersionPart =
+          i < parsedMinimumVersion.length ? parsedMinimumVersion[i] : 0;
+      if (currentVersionPart != minimumVersionPart) {
+        return currentVersionPart > minimumVersionPart;
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   * Checks whether a glibc version string was successfully detected.
+   *
+   * @param version the glibc version to check
+   * @return true if the glibc version is known
+   */
+  public static boolean isKnownGlibcVersion(final String version) {
+    return version != null && !UNKNOWN.equals(version);
+  }
+
+  private static int[] parseVersion(final String version) {
+    return Pattern.compile("\\.")
+        .splitAsStream(version)
+        .mapToInt(Integer::parseInt)
+        .toArray();
+  }
+
   private static void detect() {
     final String detectedOS = normalizeOS(normalize("os.name"));
     final String detectedArch = normalizeArch(normalize("os.arch"));
